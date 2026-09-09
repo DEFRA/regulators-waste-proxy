@@ -1,211 +1,126 @@
-# regulators-waste-proxy
+# Regulators waste proxy
 
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_regulators-waste-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=DEFRA_regulators-waste-proxy)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_regulators-waste-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=DEFRA_regulators-waste-proxy)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_regulators-waste-proxy&metric=coverage)](https://sonarcloud.io/summary/new_code?id=DEFRA_regulators-waste-proxy)
+A .NET 10 YARP reverse proxy prepared for the CDP build and deployment approach.
 
-Core delivery platform Node.js Frontend Template.
+## Behaviour
 
-- [Requirements](#requirements)
-  - [Node.js](#nodejs)
-- [Server-side Caching](#server-side-caching)
-- [Redis](#redis)
-- [Local Development](#local-development)
-  - [Setup](#setup)
-  - [Development](#development)
-  - [Production](#production)
-  - [Npm scripts](#npm-scripts)
-  - [Update dependencies](#update-dependencies)
-  - [Formatting](#formatting)
-    - [Windows prettier issue](#windows-prettier-issue)
-- [Docker](#docker)
-  - [Development image](#development-image)
-  - [Production image](#production-image)
-  - [Docker Compose](#docker-compose)
-  - [Dependabot](#dependabot)
-  - [SonarCloud](#sonarcloud)
-- [Licence](#licence)
-  - [About the licence](#about-the-licence)
+- `GET /health` is handled by this service and returns `200 OK` with `{ "message": "success" }`.
+- `GET /health/all` checks every configured downstream destination's `/health` endpoint. It returns `200 OK` only
+  when they are all healthy, otherwise `503 Service Unavailable` with the per-destination result.
+- The container listens on `PORT` (default `8085`) and includes `curl` for the CDP platform health check.
 
-## Requirements
+`/health/all` is protected by an exact, non-empty `X-Health-Check-Token` API-key header. The key defaults to empty
+(which rejects every request), so deployments must configure it with the `Health__All__ApiKey` environment variable.
+`Health__All__DownstreamTimeoutMilliseconds` optionally overrides the five-second downstream timeout.
 
-### Node.js
+## Routes
 
-Please install Node Version Manager [nvm](https://github.com/creationix/nvm)
+The proxy forwards requests to two downstream services:
 
-To use the correct version of Node.js for this application, via nvm:
+| Route | Path | Downstream |
+|---|---|---|
+| `RegulatorsWasteDashboard` | `/{**catch-all}` | Regulators waste dashboard |
+| `RegulatorsCertificatesOfCompliance` | `/certificates-of-compliance/{**catch-all}` | Certificates of compliance service |
 
-```bash
-cd regulators-waste-proxy
-nvm use
+The more specific `/certificates-of-compliance/{**catch-all}` route takes priority. All other requests fall through
+to the dashboard catch-all.
+
+Each destination defaults to `https://unconfigured.invalid/` and must be overridden before startup via environment
+variable, for example:
+
+```text
+ReverseProxy__Clusters__RegulatorsWasteDashboard__Destinations__Primary__Address=https://dashboard.example/
+ReverseProxy__Clusters__RegulatorsCertificatesOfCompliance__Destinations__Primary__Address=https://certificates.example/
 ```
 
-## Server-side Caching
+Startup fails if any destination still has the unconfigured placeholder address.
 
-We use Catbox for server-side caching. By default the service will use CatboxRedis when deployed and CatboxMemory for
-local development.
-You can override the default behaviour by setting the `SESSION_CACHE_ENGINE` environment variable to either `redis` or
-`memory`.
+## Shuttering a path
 
-Please note: CatboxMemory (`memory`) is _not_ suitable for production use! The cache will not be shared between each
-instance of the service and it will not persist between restarts.
+The proxy can temporarily replace a configured YARP route with a locally served DEFRA holding page. Every request
+that matches a shuttered route, including pages and assets below its public path, returns `503 Service Unavailable`,
+`text/html`, and `Cache-Control: no-store`; the request is not sent to YARP or its downstream service. There is no
+redirect. `/health` and `/health/all` cannot be shuttered, preserving the CDP health-check contract.
 
-## Redis
+Shuttering is configured on the YARP route itself, so its `Match:Path` remains the single source of truth for the
+public path. Set the route's `Metadata:Shuttered` value to `true` or `false`:
 
-Redis is an in-memory key-value store. Every instance of a service has access to the same Redis key-value store similar
-to how services might have a database (or MongoDB). All frontend services are given access to a namespaced prefixed that
-matches the service name. e.g. `my-service` will have access to everything in Redis that is prefixed with `my-service`.
-
-If your service does not require a session cache to be shared between instances or if you don't require Redis, you can
-disable setting `SESSION_CACHE_ENGINE=false` or changing the default value in `src/config/index.js`.
-
-## Proxy
-
-We are using forward-proxy which is set up by default. Services are automatically configured with the proxy environment variables when deployed.
-
-Node.js 24 uses these variables to route outbound HTTP(S) requests through the proxy:
-
-NODE_USE_ENV_PROXY=1
-HTTPS_PROXY=...
-NO_PROXY=...
-
-No additional proxy configuration is required in the service.
-
-## Local Development
-
-### Setup
-
-Install application dependencies:
-
-```bash
-npm install
+```json
+{
+  "ReverseProxy": {
+    "Routes": {
+      "RegulatorsCertificatesOfCompliance": {
+        "Metadata": {
+          "Shuttered": true
+        }
+      }
+    }
+  }
+}
 ```
 
-### Git hooks
+Or via environment variable:
 
-Install git hooks (optional)
-
-```bash
-npm run git:hooks
+```text
+ReverseProxy__Routes__RegulatorsCertificatesOfCompliance__Metadata__Shuttered=true
 ```
 
-### Development
+The holding-page body comes from an HTML fragment whose filename is derived from the route's `ClusterId`, converted
+to kebab case. For example, `RegulatorsCertificatesOfCompliance` uses
+[`regulators-certificates-of-compliance.html`](src/ReverseProxy/Shuttering/Pages/regulators-certificates-of-compliance.html),
+which is inserted inside the shared DEFRA page shell. A holding-page fragment must exist for every configured route;
+startup fails if one is missing.
 
-To run the application in `development` mode run:
+### Shuttering observability
 
-```bash
-npm run dev
+Every response served from a shuttered route emits the CloudWatch Embedded Metric Format counter
+`ShutteredResponse`, tagged with its YARP route ID. Configure the deployment with the following setting:
+
+```text
+AWS_EMF_NAMESPACE=regulators-waste-proxy
 ```
 
-### Production
+## Run locally
 
-To mimic the application running in `production` mode locally run:
-
-```bash
-npm start
+```sh
+dotnet restore regulators-waste-proxy.slnx
+dotnet run --project src/ReverseProxy
 ```
 
-### Npm scripts
+The local development configuration in `appsettings.Development.json` points the clusters at:
 
-All available Npm scripts can be seen in [package.json](./package.json)
-To view them in your command line run:
+- Dashboard: `https://localhost:7154/`
+- Certificates of compliance: `http://localhost:3000/`
 
-```bash
-npm run
+Then check the local endpoint:
+
+```sh
+curl http://localhost:8085/health
 ```
 
-### Update dependencies
+## Compose demonstration
 
-To update dependencies use [npm-check-updates](https://github.com/raineorshine/npm-check-updates):
-
-> The following script is a good start. Check out all the options on
-> the [npm-check-updates](https://github.com/raineorshine/npm-check-updates)
-
-```bash
-ncu --interactive --format group
+```sh
+docker compose up --build -d --wait
 ```
 
-### Formatting
+## Tests
 
-#### Windows prettier issue
+Run the unit tests without Docker:
 
-If you are having issues with formatting of line breaks on Windows update your global git config by running:
-
-```bash
-git config --global core.autocrlf false
+```sh
+dotnet test tests/ReverseProxy.Tests/ReverseProxy.Tests.csproj --no-restore
 ```
 
-## Docker
+Start the Compose environment before running the routing integration tests:
 
-### Development image
-
-> [!TIP]
-> For Apple Silicon users, you may need to add `--platform linux/amd64` to the `docker run` command to ensure
-> compatibility fEx: `docker build --platform=linux/arm64 --no-cache --tag regulators-waste-proxy`
-
-Build:
-
-```bash
-docker build --target development --no-cache --tag regulators-waste-proxy:development .
+```sh
+docker compose up --build -d --wait
+dotnet test tests/ReverseProxy.IntegrationTests/ReverseProxy.IntegrationTests.csproj --no-restore
 ```
 
-Run:
+## Code quality
 
-```bash
-docker run -p 3000:3000 regulators-waste-proxy:development
-```
-
-### Production image
-
-Build:
-
-```bash
-docker build --no-cache --tag regulators-waste-proxy .
-```
-
-Run:
-
-```bash
-docker run -p 3000:3000 regulators-waste-proxy
-```
-
-### Docker Compose
-
-A local environment with:
-
-- Floci (replacing Localstack) for AWS services (S3, SQS)
-- Redis
-- MongoDB
-- This service.
-- A commented out backend example.
-
-```bash
-docker compose up --build -d
-```
-
-### Dependabot
-
-We have added an example dependabot configuration file to the repository. You can enable it by renaming
-the [.github/example.dependabot.yml](.github/example.dependabot.yml) to `.github/dependabot.yml`
-
-### SonarCloud
-
-Instructions for setting up SonarCloud can be found in [sonar-project.properties](./sonar-project.properties).
-
-## Licence
-
-THIS INFORMATION IS LICENSED UNDER THE CONDITIONS OF THE OPEN GOVERNMENT LICENCE found at:
-
-<http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3>
-
-The following attribution statement MUST be cited in your products and applications when using this information.
-
-> Contains public sector information licensed under the Open Government license v3
-
-### About the licence
-
-The Open Government Licence (OGL) was developed by the Controller of Her Majesty's Stationery Office (HMSO) to enable
-information providers in the public sector to license the use and re-use of their information under a common open
-licence.
-
-It is designed to encourage use and re-use of information freely and flexibly, with only a few conditions.
+SonarCloud analysis runs after the validation, publish, and hot-fix jobs. It uses the repository `SONAR_TOKEN` secret
+and reports coverage from both the unit and routing integration test projects to the
+[Regulators Waste Proxy project](https://sonarcloud.io/project/overview?id=DEFRA_regulators-waste-proxy).

@@ -1,0 +1,35 @@
+# Active Dependabot configuration.
+version: 2
+
+updates:
+  # Update NuGet packages
+  - package-ecosystem: nuget
+    directory: /
+    open-pull-requests-limit: 10
+
+    # Group the proxy and test dependencies into shared PRs.
+    groups:
+      proxy:
+        patterns:
+          - 'Yarp.ReverseProxy'
+      testing:
+        patterns:
+          - 'AwesomeAssertions'
+          - 'Microsoft.NET.Test.Sdk'
+          - 'xunit*'
+
+    # Schedule run every Monday, local time
+    schedule:
+      interval: weekly
+      time: '10:30'
+      timezone: 'Europe/London'
+
+  # Update GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+
+    # Schedule run every Monday, local time
+    schedule:
+      interval: weekly
+      time: '10:30'
+      timezone: 'Europe/London'
