@@ -54,6 +54,42 @@ public class RoutingTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task RegulatorsWasteDashboard_ShouldForwardPathUnchanged()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync("/home", TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var downstreamRequest = await response.Content.ReadFromJsonAsync<DownstreamRequest>(
+            TestContext.Current.CancellationToken
+        );
+
+        downstreamRequest.Should().NotBeNull();
+        downstreamRequest.Method.Should().Be(HttpMethod.Get.Method);
+        downstreamRequest.Path.Should().Be("/home");
+    }
+
+    [Fact]
+    public async Task RegulatorsWasteDashboardRoot_WhenRootPathRequested_ShouldRewritePathToHome()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var downstreamRequest = await response.Content.ReadFromJsonAsync<DownstreamRequest>(
+            TestContext.Current.CancellationToken
+        );
+
+        downstreamRequest.Should().NotBeNull();
+        downstreamRequest.Method.Should().Be(HttpMethod.Get.Method);
+        downstreamRequest.Path.Should().Be("/home");
+    }
+
+    [Fact]
     public async Task ShutteredProxy_ShouldReturnItsMountedHoldingPageInsteadOfProxying()
     {
         using var client = CreateClient();

@@ -28,7 +28,17 @@ try
     var port = builder.Configuration["PORT"];
     if (int.TryParse(port, out var configuredPort))
     {
-        builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(configuredPort));
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            if (builder.Environment.IsDevelopment())
+            {
+                options.ListenAnyIP(configuredPort, listenOptions => listenOptions.UseHttps());
+            }
+            else
+            {
+                options.ListenAnyIP(configuredPort);
+            }
+        });
     }
 
     var reverseProxyConfiguration = builder.Configuration.GetSection("ReverseProxy");
