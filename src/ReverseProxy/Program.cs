@@ -28,9 +28,10 @@ try
     var port = builder.Configuration["PORT"];
     if (int.TryParse(port, out var configuredPort))
     {
+        var isContainer = builder.Configuration.GetValue<bool>("DOTNET_RUNNING_IN_CONTAINER");
         builder.WebHost.ConfigureKestrel(options =>
         {
-            if (builder.Environment.IsDevelopment())
+            if (builder.Environment.IsDevelopment() && !isContainer)
             {
                 options.ListenAnyIP(configuredPort, listenOptions => listenOptions.UseHttps());
             }
