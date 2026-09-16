@@ -54,6 +54,24 @@ public class RoutingTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task RegulatorsCertificatesOfComplianceRoot_WhenExactPathRequested_ShouldRewritePathToRoot()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync("/certificates-of-compliance", TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var downstreamRequest = await response.Content.ReadFromJsonAsync<DownstreamRequest>(
+            TestContext.Current.CancellationToken
+        );
+
+        downstreamRequest.Should().NotBeNull();
+        downstreamRequest.Method.Should().Be(HttpMethod.Get.Method);
+        downstreamRequest.Path.Should().Be("/");
+    }
+
+    [Fact]
     public async Task RegulatorsWasteDashboard_ShouldForwardPathUnchanged()
     {
         using var client = CreateClient();

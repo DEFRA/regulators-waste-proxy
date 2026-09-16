@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/",
+    "headers": {
+      "X-Forwarded-Prefix": {
+        "equalTo": "/certificates-of-compliance"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "method": "GET",
+      "path": "/",
+      "query": null
+    }
+  }
+}
