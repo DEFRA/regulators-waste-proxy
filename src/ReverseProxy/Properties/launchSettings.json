@@ -5,11 +5,11 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
-      "applicationUrl": "http://localhost:8085",
+      "applicationUrl": "https://localhost:8013;http://localhost:3085",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "AWS_EMF_ENVIRONMENT": "Local",
-        "PORT": "8085"
+        "PORT": "8013"
       }
     }
   }

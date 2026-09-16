@@ -40,6 +40,62 @@ public sealed class ShutteredReverseProxyWebApplicationFactory : WebApplicationF
     }
 }
 
+/// <summary>
+/// Simulates the Docker compose scenario: Development environment with DOTNET_RUNNING_IN_CONTAINER=true.
+/// The app must start using plain HTTP — no developer SSL certificate is present in a container.
+/// </summary>
+public sealed class ContainerDevelopmentReverseProxyWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Development");
+        builder.ConfigureAppConfiguration(config =>
+        {
+            config.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["DOTNET_RUNNING_IN_CONTAINER"] = "true",
+                    ["PORT"] = "0",
+                    ["AWS_EMF_ENABLED"] = "false",
+                    ["Health:All:ApiKey"] = "ApiKey",
+                }
+            );
+        });
+    }
+}
+
+/// <summary>
+/// No PORT configuration — the Kestrel override block should be skipped and the app
+/// should fall back to the framework defaults without throwing.
+/// </summary>
+public sealed class NoPortReverseProxyWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("IntegrationTests");
+        builder.ConfigureAppConfiguration(config =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?> { ["PORT"] = null });
+        });
+    }
+}
+
+/// <summary>
+/// PORT set to a non-integer value — TryParse should fail silently and the app should
+/// start using the framework defaults.
+/// </summary>
+public sealed class InvalidPortReverseProxyWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("IntegrationTests");
+        builder.ConfigureAppConfiguration(config =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?> { ["PORT"] = "not-a-port" });
+        });
+    }
+}
+
 public sealed class ShutteringMetricsSpy : IShutteringMetrics
 {
     public List<string> RouteIds { get; } = [];

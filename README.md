@@ -19,11 +19,12 @@ The proxy forwards requests to two downstream services:
 
 | Route | Path | Downstream |
 |---|---|---|
-| `RegulatorsWasteDashboard` | `/{**catch-all}` | Regulators waste dashboard |
+| `RegulatorsWasteDashboard` | `/regulator/{**catch-all}` | Regulators waste dashboard |
 | `RegulatorsCertificatesOfCompliance` | `/certificates-of-compliance/{**catch-all}` | Certificates of compliance service |
 
-The more specific `/certificates-of-compliance/{**catch-all}` route takes priority. All other requests fall through
-to the dashboard catch-all.
+The `/regulator` prefix is stripped before forwarding to the dashboard, and `X-Forwarded-Prefix: /regulator` is set
+so the downstream app can construct its own URLs correctly. Similarly, `/certificates-of-compliance` is stripped
+before forwarding to the certificates service with `X-Forwarded-Prefix: /certificates-of-compliance`.
 
 Each destination defaults to `https://unconfigured.invalid/` and must be overridden before startup via environment
 variable, for example:
