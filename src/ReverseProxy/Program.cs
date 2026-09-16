@@ -63,6 +63,7 @@ try
     app.UseCloudWatchMetrics();
     app.MapShuttering(shutteredPages);
     app.MapAggregateHealth();
+    app.MapGet("/", () => Results.Redirect("/dashboard"));
     app.MapReverseProxy();
 
     await app.RunAsync();

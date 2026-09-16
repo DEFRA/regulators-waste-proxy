@@ -72,11 +72,11 @@ public class RoutingTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task RegulatorsWasteDashboard_ShouldForwardPathUnchanged()
+    public async Task RegulatorsWasteDashboard_ShouldRemovePublicPrefixAndForwardIt()
     {
         using var client = CreateClient();
 
-        var response = await client.GetAsync("/home", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync("/dashboard/home", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -90,11 +90,11 @@ public class RoutingTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task RegulatorsWasteDashboardRoot_WhenRootPathRequested_ShouldRewritePathToHome()
+    public async Task RegulatorsWasteDashboardRoot_WhenDashboardRootRequested_ShouldRewritePathToHome()
     {
         using var client = CreateClient();
 
-        var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync("/dashboard", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -105,6 +105,20 @@ public class RoutingTests : IntegrationTestBase
         downstreamRequest.Should().NotBeNull();
         downstreamRequest.Method.Should().Be(HttpMethod.Get.Method);
         downstreamRequest.Path.Should().Be("/home");
+    }
+
+    [Fact]
+    public async Task RootPath_ShouldRedirectToDashboard()
+    {
+        using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            BaseAddress = new Uri("http://localhost:8085"),
+        };
+
+        var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Found);
+        response.Headers.Location.Should().Be(new Uri("/dashboard", UriKind.Relative));
     }
 
     [Fact]
