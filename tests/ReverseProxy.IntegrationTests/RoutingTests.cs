@@ -110,9 +110,10 @@ public class RoutingTests : IntegrationTestBase
     [Fact]
     public async Task RootPath_ShouldRedirectToDashboard()
     {
-        using var client = new HttpClient(
-            new HttpClientHandler { AllowAutoRedirect = false }
-        ) { BaseAddress = new Uri("http://localhost:8085") };
+        using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            BaseAddress = new Uri("http://localhost:8085"),
+        };
 
         var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
 
