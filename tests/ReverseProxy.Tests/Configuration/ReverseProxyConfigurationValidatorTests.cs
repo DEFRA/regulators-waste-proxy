@@ -51,7 +51,8 @@ public class ReverseProxyConfigurationValidatorTests
                 new Dictionary<string, string?>
                 {
                     ["ReverseProxy:Clusters:RegulatorsWasteDashboard:Destinations:Primary:Address"] = dashboardAddress,
-                    ["ReverseProxy:Clusters:RegulatorsCertificatesOfCompliance:Destinations:Primary:Address"] = certificatesAddress,
+                    ["ReverseProxy:Clusters:RegulatorsCertificatesOfCompliance:Destinations:Primary:Address"] =
+                        certificatesAddress,
                 }
             )
             .Build();
