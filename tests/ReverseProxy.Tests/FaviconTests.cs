@@ -15,4 +15,15 @@ public class FaviconTests(ReverseProxyWebApplicationFactory factory) : IClassFix
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
+
+    [Fact]
+    public async Task HeadFavicon_ShouldReturnNoContent()
+    {
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Head, "/favicon.ico");
+
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
 }

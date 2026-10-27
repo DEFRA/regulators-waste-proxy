@@ -64,7 +64,7 @@ try
     app.MapShuttering(shutteredPages);
     app.MapAggregateHealth();
     app.MapGet("/", () => Results.Redirect("/dashboard"));
-    app.MapGet("/favicon.ico", () => Results.NoContent());
+    app.MapMethods("/favicon.ico", [HttpMethods.Get, HttpMethods.Head], () => Results.NoContent());
     app.MapMethods(
         "/robots.txt",
         [HttpMethods.Get, HttpMethods.Head],
