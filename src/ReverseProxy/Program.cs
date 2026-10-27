@@ -65,6 +65,11 @@ try
     app.MapAggregateHealth();
     app.MapGet("/", () => Results.Redirect("/dashboard"));
     app.MapGet("/favicon.ico", () => Results.NoContent());
+    app.MapMethods(
+        "/robots.txt",
+        [HttpMethods.Get, HttpMethods.Head],
+        () => Results.Text("User-agent: *\nDisallow: /\n", "text/plain")
+    );
     app.MapReverseProxy();
 
     await app.RunAsync();
