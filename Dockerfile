@@ -1,5 +1,5 @@
 # Base runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14 AS base
 WORKDIR /app
 
 # CDP platform health checks use curl.
@@ -10,7 +10,7 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/*
 
 # Build stage image
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS build
 WORKDIR /src
 
 COPY .config/dotnet-tools.json .config/dotnet-tools.json
